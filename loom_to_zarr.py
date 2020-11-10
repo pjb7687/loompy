@@ -6,6 +6,7 @@
 # Description: Converts loom file to loom.zarr
 # Usage: loom_to_zarr.py input.loom
 
+# https://github.com/zarr-developers/zarr-python/issues/87
 import os
 import h5py, zarr
 import numpy as np
