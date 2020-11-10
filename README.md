@@ -23,7 +23,6 @@ array(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'J', 'K', 'L',
        'M', 'N', 'O', 'P', 'Q', 'R', 'S'], dtype=object)
 >>> ds.ra['Gene2'] = ["G_" + gene for gene in ds.ra['Gene']]
 >>> ds.ra['Gene2']
->>> ds.ra['Gene2']
 array(['G_A', 'G_B', 'G_C', 'G_D', 'G_E', 'G_F', 'G_G', 'G_H', 'G_I',
        'G_L', 'G_J', 'G_K', 'G_L', 'G_M', 'G_N', 'G_O', 'G_P', 'G_Q',
        'G_R', 'G_S'], dtype=object)
