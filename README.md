@@ -8,7 +8,7 @@ loompy with an experimental Zarr support.
 >>> ds = loompy.connect('test.zarr.loom', 'r+')
 ```
 
-- Create loom.zarr:
+- Create zarr.loom:
 ```python
 >>> import loompy
 >>> ds = loompy.new('test2.zarr.loom', 'r+', backend='zarr')
