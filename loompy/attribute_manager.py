@@ -58,14 +58,16 @@ class AttributeManager:
 					return self.ds._file[a].attrs["last_modified"]
 				elif self.ds._file.mode == 'r+':
 					self.ds._file[a].attrs["last_modified"] = timestamp()
-					self.ds._file.flush()
+					if isinstance(self.ds._file, h5py.File):
+						self.ds._file.flush()
 					return self.ds._file[a].attrs["last_modified"]
 			if name is not None:
 				if "last_modified" in self.ds._file[a + name].attrs:
 					return self.ds._file[a + name].attrs["last_modified"]
 				elif self.ds._file.mode == 'r+':
 					self.ds._file[a + name].attrs["last_modified"] = timestamp()
-					self.ds._file.flush()
+					if isinstance(self.ds._file, h5py.File):
+						self.ds._file.flush()
 					return self.ds._file[a + name].attrs["last_modified"]
 		return timestamp()
 
@@ -153,20 +155,28 @@ class AttributeManager:
 				if self.ds._file[a].__contains__(name):
 					del self.ds._file[a + name]
 
-				self.ds._file.create_dataset(
-					a + name,
-					data=values,
-					dtype=h5py.special_dtype(vlen=str) if values.dtype == np.object_ else values.dtype,
-					maxshape=(values.shape[0], ) if len(values.shape) == 1 else (values.shape[0], None),
-					fletcher32=False,
-					compression="gzip",
-					shuffle=False,
-					compression_opts=2
-				)
+				if isinstance(self.ds._file, h5py.File):
+					self.ds._file.create_dataset(
+						a + name,
+						data=values,
+						dtype=h5py.special_dtype(vlen=str) if values.dtype == np.object_ else values.dtype,
+						maxshape=(values.shape[0], ) if len(values.shape) == 1 else (values.shape[0], None),
+						fletcher32=False,
+						compression="gzip",
+						shuffle=False,
+						compression_opts=2
+					)
+				else:
+					self.ds._file.create_dataset(
+						a + name,
+						data=values.astype(np.string_) if values.dtype == np.object_ else values
+					)
+
 				self.ds._file[a + name].attrs["last_modified"] = timestamp()
 				self.ds._file[a].attrs["last_modified"] = timestamp()
 				self.ds._file.attrs["last_modified"] = timestamp()
-				self.ds._file.flush()
+				if isinstance(self.ds._file, h5py.File):
+					self.ds._file.flush()
 				self.__dict__["storage"][name] = loompy.materialize_attr_values(self.ds._file[a][name][:])
 			else:
 				self.__dict__["storage"][name] = val
@@ -185,7 +195,8 @@ class AttributeManager:
 			a = ["/row_attrs/", "/col_attrs/"][self.axis]
 			if self.ds._file[a].__contains__(name):
 				del self.ds._file[a + name]
-				self.ds._file.flush()
+				if isinstance(self.ds._file, h5py.File):
+					self.ds._file.flush()
 		if name in self.__dict__["storage"]:
 			del self.__dict__["storage"][name]
 

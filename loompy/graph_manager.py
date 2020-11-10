@@ -27,7 +27,7 @@ class GraphManager:
 
 		if ds is not None:
 			# Patch old files that use the old naming convention
-			if ds._file.mode == "r+":
+			if ds.mode == "r+":
 				if "row_graphs" not in ds._file:
 					ds._file.create_group('/row_graphs')
 				if "col_graphs" not in ds._file:

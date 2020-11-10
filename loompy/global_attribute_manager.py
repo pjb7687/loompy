@@ -5,12 +5,13 @@ import loompy
 import warnings
 with warnings.catch_warnings():
 	warnings.simplefilter("ignore")
-	import h5py
+	import h5py, zarr
 from .utils import compare_loom_spec_version
+from typing import Union
 
 
 class GlobalAttributeManager(object):
-	def __init__(self, f: h5py.File) -> None:
+	def __init__(self, f: Union[h5py.File, zarr.hierarchy.Group]) -> None:
 		setattr(self, "!f", f)
 		storage: Dict[str, str] = {}
 		setattr(self, "!storage", storage)
@@ -75,7 +76,8 @@ class GlobalAttributeManager(object):
 				if loompy.compare_loom_spec_version(self.f, "3.0.0") < 0 and "attrs" not in self.f["/"]:
 					normalized = loompy.normalize_attr_values(val, False)
 					self.f.attrs[name] = normalized
-					self.f.flush()
+					if isinstance(self.f, h5py.File):
+						self.f.flush()
 					val = self.f.attrs[name]
 					# Read it back in to ensure it's synced and normalized
 					normalized = loompy.materialize_attr_values(val)
@@ -88,7 +90,8 @@ class GlobalAttributeManager(object):
 						self.ds._file.create_dataset("attrs/" + name, data=normalized, dtype=h5py.special_dtype(vlen=str))
 					else:
 						self.f["attrs"][name] = normalized
-					self.f.flush()
+					if isinstance(self.f, h5py.File):
+						self.f.flush()
 					val = self.f["attrs"][name][()]
 					# Read it back in to ensure it's synced and normalized
 					normalized = loompy.materialize_attr_values(val)

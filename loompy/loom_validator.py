@@ -1,4 +1,5 @@
 import h5py
+import zarr
 from typing import *
 import logging
 import numpy as np
@@ -8,7 +9,7 @@ from .utils import get_loom_spec_version
 
 
 class LoomValidator:
-	def __init__(self, version: str = None) -> None:
+	def __init__(self, version: str = None, backend: str = "hdf5") -> None:
 		"""
 		Args:
 			version: 		The Loom file format version to validate against ("3.0.0", "2.0.1", "old"), or None to infer from file
@@ -20,6 +21,7 @@ class LoomValidator:
 		self.errors: List[str] = []  #: Errors found during validation
 		self.warnings: List[str] = []  #: Warnings triggered during validation
 		self.summary: List[str] = []  #: Summary of the file structure
+		self.backend = backend
 
 	def _check(self, condition: bool, message: str) -> bool:
 		if not condition:
@@ -45,12 +47,19 @@ class LoomValidator:
 			assessed relative to attribute name and data type conventions given at http://linnarssonlab.org/loompy/conventions/.
 		"""
 		valid1 = True
-		with h5py.File(path, mode="r") as f:
-			if self.version == None:
-				self.version = get_loom_spec_version(f)
-			valid1 = self.validate_spec(f)
-			if not valid1:
-				self.errors.append("For help, see http://linnarssonlab.org/loompy/format/")
+		if self.backend == "hdf5":
+			open_func = h5py.File
+		elif self.backend == "zarr":
+			open_func = zarr.open_group
+
+		f = open_func(path, mode="r")
+		if self.version == None:
+			self.version = get_loom_spec_version(f)
+		valid1 = self.validate_spec(f)
+		if not valid1:
+			self.errors.append("For help, see http://linnarssonlab.org/loompy/format/")
+		if self.backend == "hdf5":
+			f.close()
 
 		valid2 = True
 		if strictness == "conventions":
@@ -229,7 +238,7 @@ class LoomValidator:
 				self._check(file["layers"][layer].dtype in matrix_types, f"Layer '{layer}' dtype={file['layers'][layer].dtype} is not allowed")
 				delay_print(f"{layer: >{width}} {file['layers'][layer].dtype}")
 
-		if self.version == "3.0.0":
+		if self.version == "3.0.0" and self.backend == "hdf5":
 			expected_dtype = np.object_
 		else:
 			expected_dtype = np.string_

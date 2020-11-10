@@ -2,6 +2,7 @@ import numpy as np
 from typing import *
 import scipy
 from loompy import timestamp
+import h5py
 
 
 class MemoryLoomLayer():
@@ -70,7 +71,8 @@ class LoomLayer():
 				return self.ds._file["/matrix"].attrs["last_modified"]
 			elif self.ds._file.mode == 'r+':
 				self.ds._file["/matrix"].attrs["last_modified"] = timestamp()
-				self.ds._file.flush()
+				if isinstance(self.ds._file, h5py.File):
+					self.ds._file.flush()
 				return self.ds._file["/matrix"].attrs["last_modified"]
 
 		if self.name != "":
@@ -78,7 +80,8 @@ class LoomLayer():
 				return self.ds._file["/layers/" + self.name].attrs["last_modified"]
 			elif self.ds._file.mode == 'r+':
 				self.ds._file["/layers/" + self.name].attrs["last_modified"] = timestamp()
-				self.ds._file.flush()
+				if isinstance(self.ds._file, h5py.File):
+					self.ds._file.flush()
 				return self.ds._file["/layers/" + self.name].attrs["last_modified"]
 
 		return timestamp()
@@ -93,12 +96,14 @@ class LoomLayer():
 			self.ds._file['/matrix'][slice] = data
 			self.ds._file["/matrix"].attrs["last_modified"] = timestamp()
 			self.ds._file.attrs["last_modified"] = timestamp()
-			self.ds._file.flush()
+			if isinstance(self.ds._file, h5py.File):
+				self.ds._file.flush()
 		else:
 			self.ds._file['/layers/' + self.name][slice] = data
 			self.ds._file["/layers/" + self.name].attrs["last_modified"] = timestamp()
 			self.ds._file.attrs["last_modified"] = timestamp()
-			self.ds._file.flush()
+			if isinstance(self.ds._file, h5py.File):
+				self.ds._file.flush()
 
 	def sparse(self, rows: np.ndarray = None, cols: np.ndarray = None) -> scipy.sparse.coo_matrix:
 		if rows is not None:

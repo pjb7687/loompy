@@ -28,7 +28,7 @@ import os.path
 from shutil import copyfile
 from typing import Tuple, Union, Any, Dict, List, Iterable, Callable, Optional
 
-import h5py
+import h5py, zarr
 import numpy as np
 import numpy_groupies.aggregate_numpy as npg
 import scipy.sparse
@@ -55,7 +55,7 @@ class LoomConnection:
 	Inside the ``with`` block, you can access the dataset (here using the variable ``ds``). When execution
 	leaves the ``with`` block, the connection is automatically closed, freeing up resources.
 	'''
-	def __init__(self, filename: str, mode: str = 'r+', *, validate: bool = True) -> None:
+	def __init__(self, filename: str, mode: str = 'r+', *, validate: bool = True, backend: str = "auto") -> None:
 		"""
 		Establish a connection to a Loom file.
 
@@ -73,15 +73,34 @@ class LoomConnection:
 		# make sure a valid mode was passed
 		if mode != 'r+' and mode != 'r':
 			raise ValueError("Mode must be either 'r' or 'r+'")
+
+		self.mode = mode
 		self.filename = filename  #: Path to the file (as given when the LoomConnection was created)
+
+		if backend == "auto":
+			if os.path.isdir(filename) and os.path.exists(os.path.join(filename, ".zgroup")):
+				backend = "zarr"
+			elif os.path.isfile(filename):
+				backend = "hdf5"
+			else:
+				ValueError("Cannot determine file type")
+
+		if not backend in ["hdf5", "zarr"]:
+			raise ValueError("Backend must be either 'hdf5' or 'zarr'")
 
 		# Validate the file
 		if validate:
-			lv = loompy.LoomValidator()
+			lv = loompy.LoomValidator(backend=backend)
 			if not lv.validate(filename):
 				raise ValueError("\n".join(lv.errors) + f"\n{filename} does not appear to be a valid Loom file according to Loom spec version '{lv.version}'")
+		
+		if backend == "hdf5":
+			self._file = h5py.File(filename, mode)
+		elif backend == "zarr":
+			self._file = zarr.open_group(filename, mode)
+			
+		self.backend = backend
 
-		self._file = h5py.File(filename, mode)
 		self._closed = False
 		if "matrix" in self._file:
 			self.shape = self._file["/matrix"].shape  #: Shape of the dataset (n_rows, n_cols)
@@ -99,13 +118,6 @@ class LoomConnection:
 		self.layer = self.layers
 		self.row_attrs = self.ra
 		self.col_attrs = self.ca
-
-	@property
-	def mode(self) -> str:
-		"""
-		The access mode of the connection ('r' or 'r+')
-		"""
-		return self._file.mode
 
 	def last_modified(self) -> str:
 		"""
@@ -251,7 +263,8 @@ class LoomConnection:
 				# and should clean up their code
 				logging.warn("Connection to %s is already closed", self.filename)
 		else:
-			self._file.close()
+			if self.backend == "hdf5":
+				self._file.close()
 			self._file = None
 		self.layers = None  # type: ignore
 		self.ra = None  # type: ignore
@@ -973,7 +986,7 @@ def create_append(filename: str, layers: Union[np.ndarray, Dict[str, np.ndarray]
 		create(filename, layers, row_attrs, col_attrs, file_attrs=file_attrs)
 
 
-def new(filename: str, *, file_attrs: Optional[Dict[str, str]] = None) -> LoomConnection:
+def new(filename: str, *, file_attrs: Optional[Dict[str, str]] = None, backend: str = 'hdf5') -> LoomConnection:
 	"""
 	Create an empty Loom file, and return it as a context manager.
 	"""
@@ -984,15 +997,19 @@ def new(filename: str, *, file_attrs: Optional[Dict[str, str]] = None) -> LoomCo
 
 	# Create the file (empty).
 	# Yes, this might cause an exception, which we prefer to send to the caller
-	f = h5py.File(name=filename, mode='w')
+	if backend == "hdf5":
+		f = h5py.File(name=filename, mode='w')
+	elif backend == "zarr":
+		f = zarr.open_group(filename, mode='w')
 	f.create_group('/attrs')  # v3.0.0
 	f.create_group('/layers')
 	f.create_group('/row_attrs')
 	f.create_group('/col_attrs')
 	f.create_group('/row_graphs')
 	f.create_group('/col_graphs')
-	f.flush()
-	f.close()
+	if backend == "hdf5":
+		f.flush()
+		f.close()
 
 	ds = connect(filename, validate=False)
 	for vals in file_attrs:

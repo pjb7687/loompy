@@ -1,4 +1,6 @@
+# loompy v3.0.6 with Zarr support
 
+loompy with an experimental Zarr support.
 
 # loompy v3.0
 
