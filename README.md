@@ -2,7 +2,7 @@
 
 loompy with an experimental Zarr support.
 
-- Open loom.zarr:
+- Open zarr.loom:
 ```python
 >>> import loompy
 >>> ds = loompy.connect('test.zarr.loom', 'r+')
